@@ -11,69 +11,106 @@ import (
 
 const CODE_LENGTH = 4
 
-var activeRooms map[string]Room
+var activeGames map[string]Game
 var activePlayers map[string]Player
 
 func main() {
-	activeRooms = make(map[string]Room)
+	activeGames = make(map[string]Game)
 
 	r := gin.Default()
-	r.GET("/room/", GetNewRoom)
-	r.GET("/room/:room_type/:code", GetRoom)
-	r.POST("/room/:room_type/:code/user/:user_name", CreateNewUser)
+	r.GET("/game/", GetNewGame)
+	r.GET("/game/:game_type/:code", GetGame)
+	r.POST("/game/:game_type/:code/user/:user_name", CreateNewUser)
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 
 }
 
-func GetNewRoom(c *gin.Context) {
+func GetNewGame(c *gin.Context) {
 
 	code := strings.GenerateCode(CODE_LENGTH)
 
-	activeRooms[code] = Room{code, "1", []Player{}, []string{}}
-	response := fmt.Sprintf("Here's your new room: %s, %s", activeRooms[code].Code, activeRooms[code].RoomType)
+	// get a default, ordered deck of 52 cards
+	var d = Deck{map[string][]string{}}
+
+	d.populate()
+
+	activeGames[code] = Game{code, "1", []Player{}, d}
+	response := fmt.Sprintf("Here's your new game: %s, %s", activeGames[code].Code, activeGames[code].GameType)
 	c.String(http.StatusAccepted, response)
 }
 
 func CreateNewUser(c *gin.Context) {
 
-	room, found := activeRooms[c.Param("code")]
+	game, found := activeGames[c.Param("code")]
 
 	if found {
 		player := Player{c.Param("user_name"), []string{}}
-		room.Players = append(room.Players, player)
-		activeRooms[room.Code] = room
+		game.Players = append(game.Players, player)
+		activeGames[game.Code] = game
 		c.String(http.StatusOK, player.Name)
 	} else {
-		c.String(http.StatusNotFound, "Could not add user for room!")
+		c.String(http.StatusNotFound, "Could not add user for game!")
 	}
 }
 
-func GetRoom(c *gin.Context) {
+func GetGame(c *gin.Context) {
 
-	room, found := activeRooms[c.Param("code")]
+	game, found := activeGames[c.Param("code")]
 
 	if found {
-		e, err := json.Marshal(room)
+		e, err := json.Marshal(game)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		response := fmt.Sprintf("Room info: \n %s", string(e))
+		response := fmt.Sprintf("Game info: \n %s", string(e))
 		c.String(http.StatusOK, response)
 	} else {
-		c.String(http.StatusNotFound, "No room was found!")
+		c.String(http.StatusNotFound, "No game was found!")
 	}
 }
 
 type Player struct {
-	Name    string   `json:"player_name"`
-	Answers []string `json:"player_answers"`
+	Name string   `json:"player_name"`
+	Card []string `json:"player_cards"`
 }
 
-type Room struct {
-	Code      string   `json:"room_code"`
-	RoomType  string   `json:"room_type"`
-	Players   []Player `json:"players_in_room"`
-	Questions []string `json:"sets_of_questions"`
+type Game struct {
+	Code     string   `json:"game_code"`
+	GameType string   `json:"game_type"`
+	Players  []Player `json:"players_in_game"`
+	Deck     Deck     `json:"deck_cards"`
+}
+
+type Card struct {
+	Rank int    `json:"card_rank"`
+	Suit string `json:"card_suit"`
+}
+
+type Deck struct {
+	Cards map[string][]string `json:"cards_in_deck"`
+}
+
+func (c Deck) populate() {
+
+	var ranks = []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	var suits = []string{"Clovers ", "Diamonds", "Hearts", "Spades"}
+
+	for sec_index, suit := range suits {
+		var cards = c.Cards[suit]
+		for index, rank := range ranks {
+			var card = Card{rank, suit}
+			card_json, err := json.Marshal(card)
+			if err != nil {
+				fmt.Println(err)
+			}
+			cards = append(cards, string(card_json))
+			fmt.Println("Rank index: ", index)
+			fmt.Println("Suit index: ", sec_index)
+			fmt.Println(cards)
+		}
+		c.Cards[suit] = cards
+	}
+	fmt.Println(c.Cards)
 }
