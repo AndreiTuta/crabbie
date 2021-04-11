@@ -30,11 +30,9 @@ func GetNewGame(c *gin.Context) {
 
 	code := strings.GenerateCode(CODE_LENGTH)
 
-	// get a default, ordered deck of 52 cards
-	var d = Deck{map[string][]string{}}
-
+	// get a default, suite based deck of 52 cards
+	var d = Deck{map[string][]Card{}}
 	d.populate()
-
 	activeGames[code] = Game{code, "1", []Player{}, d}
 	response := fmt.Sprintf("Here's your new game: %s, %s", activeGames[code].Code, activeGames[code].GameType)
 	c.String(http.StatusAccepted, response)
@@ -64,8 +62,7 @@ func GetGame(c *gin.Context) {
 			fmt.Println(err)
 			return
 		}
-		response := fmt.Sprintf("Game info: \n %s", string(e))
-		c.String(http.StatusOK, response)
+		c.String(http.StatusOK, string(e))
 	} else {
 		c.String(http.StatusNotFound, "No game was found!")
 	}
@@ -89,7 +86,7 @@ type Card struct {
 }
 
 type Deck struct {
-	Cards map[string][]string `json:"cards_in_deck"`
+	Cards map[string][]Card `json:"cards_in_deck"`
 }
 
 func (c Deck) populate() {
@@ -101,13 +98,10 @@ func (c Deck) populate() {
 		var cards = c.Cards[suit]
 		for index, rank := range ranks {
 			var card = Card{rank, suit}
-			card_json, err := json.Marshal(card)
-			if err != nil {
-				fmt.Println(err)
-			}
-			cards = append(cards, string(card_json))
+			cards = append(cards, card)
 			fmt.Println("Rank index: ", index)
 			fmt.Println("Suit index: ", sec_index)
+
 			fmt.Println(cards)
 		}
 		c.Cards[suit] = cards
