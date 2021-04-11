@@ -1,6 +1,7 @@
-# Crabbie
+# Poker mode for Crabbie
 
-Crabbie - Coolest game on [RocketCrab](https://rocketcrab.com)
+Crabbie - Coolest
+ game on [RocketCrab](https://rocketcrab.com)
 
 
 ## More info
