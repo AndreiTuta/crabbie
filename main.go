@@ -33,7 +33,7 @@ func GetNewGame(c *gin.Context) {
 	// get a default, suite based deck of 52 cards
 	var d = Deck{map[string][]Card{}}
 	d.populate()
-	activeGames[code] = Game{code, "1", []Player{}, d}
+	activeGames[code] = Game{code, "1", []Player{}, d, []Turn{}}
 	response := fmt.Sprintf("Here's your new game: %s, %s", activeGames[code].Code, activeGames[code].GameType)
 	c.String(http.StatusAccepted, response)
 }
@@ -55,8 +55,8 @@ func CreateNewUser(c *gin.Context) {
 func GetGame(c *gin.Context) {
 
 	game, found := activeGames[c.Param("code")]
-
 	if found {
+		playTurn(game.Deck)
 		e, err := json.Marshal(game)
 		if err != nil {
 			fmt.Println(err)
@@ -73,11 +73,23 @@ type Player struct {
 	Card []string `json:"player_cards"`
 }
 
-type Game struct {
-	Code     string   `json:"game_code"`
-	GameType string   `json:"game_type"`
-	Players  []Player `json:"players_in_game"`
-	Deck     Deck     `json:"deck_cards"`
+type Turn struct {
+	Id            int               `json:turn_number`
+	PlayerActions map[string][]Card `json:"player_actions"`
+}
+
+func (t Turn) playTurn(d Deck) Deck {
+	for suite, values := range d.Cards {
+		if suite == "Spades" {
+			for index, card := range values {
+				if card.Rank == 15 {
+					fmt.Println("Removing card index: ", index)
+					d.removeCard(card)
+				}
+			}
+		}
+	}
+	return d
 }
 
 type Card struct {
@@ -99,12 +111,38 @@ func (c Deck) populate() {
 		for index, rank := range ranks {
 			var card = Card{rank, suit}
 			cards = append(cards, card)
-			fmt.Println("Rank index: ", index)
-			fmt.Println("Suit index: ", sec_index)
+			fmt.Println("Rank/suit indexes: ", index, sec_index)
 
-			fmt.Println(cards)
+			// fmt.Println(cards)
 		}
 		c.Cards[suit] = cards
+
 	}
-	fmt.Println(c.Cards)
+	// fmt.Println(c.Cards)
+}
+
+func (d Deck) removeCard(c Card) {
+	var vals []Card = d.Cards[c.Suit]
+	for i := range vals {
+		if vals[i].Rank == c.Rank {
+			fmt.Print("Removing card ", i)
+			if i == 0 {
+				vals = vals[i:]
+			} else if i == len(vals)-1 {
+				vals = vals[:i]
+			} else {
+				vals[i] = Card{}
+			}
+			fmt.Println("Updating cards after removing ", c, vals)
+		}
+	}
+	d.Cards[c.Suit] = vals
+}
+
+type Game struct {
+	Code     string   `json:"game_code"`
+	GameType string   `json:"game_type"`
+	Players  []Player `json:"players_in_game"`
+	Deck     Deck     `json:"deck_cards"`
+	Turns    []Turn   `json:game_turns`
 }
