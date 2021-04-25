@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/calini/crabbie/pkg/strings"
 	"github.com/gin-gonic/gin"
@@ -20,6 +21,7 @@ func main() {
 	r := gin.Default()
 	r.GET("/game/", GetNewGame)
 	r.GET("/game/:game_type/:code", GetGame)
+	r.GET("/game/:game_type/:code/:turn", GetGameStarted)
 	r.POST("/game/:game_type/:code/user/:user_name", CreateNewUser)
 	// r.POST("/game/:game_type/:code/user/:user_name", CreateNewUser)
 
@@ -35,7 +37,7 @@ func GetNewGame(c *gin.Context) {
 	var d = Deck{map[string][]Card{}}
 	d.populate()
 	var turns = addTurns()
-	var g = Game{code, "1", []Player{}, d, turns}
+	var g = Game{code, "1", []Player{}, d, 0, turns}
 	activeGames[code] = g
 	fmt.Println(activeGames[code].Turns)
 	response := fmt.Sprintf("Here's your new game: %s, %s", activeGames[code].Code, activeGames[code].GameType)
@@ -72,6 +74,31 @@ func GetGame(c *gin.Context) {
 	}
 }
 
+func GetGameStarted(c *gin.Context) {
+	game, found := activeGames[c.Param("code")]
+	if found {
+		fmt.Println(game.Turns)
+		var current_turn = Turn{0, "", "", map[string][]Card{}}
+		var turn_val, _ = strconv.ParseInt(c.Param("turn"), 10, 0)
+		//  Add error handling to prevent game from starting before players are setup
+		for i := range game.Turns {
+			if game.Turns[i].Id == int(turn_val) {
+				current_turn = game.Turns[i]
+			}
+		}
+		game.Turns = []Turn{current_turn}
+		game.CurrentTurn = int(turn_val)
+		e, err := json.Marshal(game)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		c.String(http.StatusOK, string(e))
+	} else {
+		c.String(http.StatusNotFound, "No game was found!")
+	}
+}
+
 type Player struct {
 	Name string   `json:"player_name"`
 	Card []string `json:"player_cards"`
@@ -79,32 +106,47 @@ type Player struct {
 
 type Turn struct {
 	Id            int               `json:turn_number`
+	Description   string            `json:turn_description`
 	Requirement   string            `json:turn_requirement`
 	PlayerActions map[string][]Card `json:player_actions`
 }
 
 func addTurns() []Turn {
 	var turns = []Turn{}
-	var turns_number = []int{1, 2, 3, 4}
+	var turns_number = []int{0, 1, 2, 3, 4}
 	for i, element := range turns_number {
-		var turn = Turn{element, "", map[string][]Card{}}
+		var turn = Turn{element, "", "", map[string][]Card{}}
 		switch os := element; os {
+		case 1:
+			var desc = "First turn"
+			var req = "Each player gets 2 cards. 3 Cards are drawn from the deck and placed on the table."
+			turn.Description = desc
+			turn.Requirement = req
+			fmt.Println(i, desc, req)
 		case 2:
 			var desc = "Second turn"
-			turn.Requirement = desc
-			fmt.Println(i, desc)
+			var req = "Another card is drawn and placed on the table"
+			turn.Description = desc
+			turn.Requirement = req
+			fmt.Println(i, desc, req)
 		case 3:
 			var desc = "Third turn"
-			turn.Requirement = desc
-			fmt.Println(i, desc)
+			var req = "A final card is drawn and placed on the table"
+			turn.Description = desc
+			turn.Requirement = req
+			fmt.Println(i, desc, req)
 		case 4:
 			var desc = "Fourth turn"
-			turn.Requirement = desc
-			fmt.Println(i, desc)
+			var req = "Game ended. Share the spoils"
+			turn.Description = desc
+			turn.Requirement = req
+			fmt.Println(i, desc, req)
 		default:
-			var desc = "First turn"
-			turn.Requirement = desc
-			fmt.Println(i, desc)
+			var desc = "Setup turn"
+			var req = "Player setup"
+			turn.Description = desc
+			turn.Requirement = req
+			fmt.Println(i, desc, req)
 		}
 		turns = append(turns, turn)
 	}
@@ -173,9 +215,10 @@ func (d Deck) removeCard(c Card) {
 }
 
 type Game struct {
-	Code     string   `json:"game_code"`
-	GameType string   `json:"game_type"`
-	Players  []Player `json:"players_in_game"`
-	Deck     Deck     `json:"deck_cards"`
-	Turns    []Turn   `json:game_turns`
+	Code        string   `json:"game_code"`
+	GameType    string   `json:"game_type"`
+	Players     []Player `json:"players_in_game"`
+	Deck        Deck     `json:"deck_cards"`
+	CurrentTurn int      `json:"current_turn"`
+	Turns       []Turn   `json:"game_turns"`
 }
