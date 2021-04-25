@@ -21,6 +21,7 @@ func main() {
 	r.GET("/game/", GetNewGame)
 	r.GET("/game/:game_type/:code", GetGame)
 	r.POST("/game/:game_type/:code/user/:user_name", CreateNewUser)
+	// r.POST("/game/:game_type/:code/user/:user_name", CreateNewUser)
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 
@@ -33,7 +34,10 @@ func GetNewGame(c *gin.Context) {
 	// get a default, suite based deck of 52 cards
 	var d = Deck{map[string][]Card{}}
 	d.populate()
-	activeGames[code] = Game{code, "1", []Player{}, d, []Turn{}}
+	var turns = addTurns()
+	var g = Game{code, "1", []Player{}, d, turns}
+	activeGames[code] = g
+	fmt.Println(activeGames[code].Turns)
 	response := fmt.Sprintf("Here's your new game: %s, %s", activeGames[code].Code, activeGames[code].GameType)
 	c.String(http.StatusAccepted, response)
 }
@@ -56,7 +60,7 @@ func GetGame(c *gin.Context) {
 
 	game, found := activeGames[c.Param("code")]
 	if found {
-		playTurn(game.Deck)
+		fmt.Println(game.Turns)
 		e, err := json.Marshal(game)
 		if err != nil {
 			fmt.Println(err)
@@ -75,7 +79,37 @@ type Player struct {
 
 type Turn struct {
 	Id            int               `json:turn_number`
-	PlayerActions map[string][]Card `json:"player_actions"`
+	Requirement   string            `json:turn_requirement`
+	PlayerActions map[string][]Card `json:player_actions`
+}
+
+func addTurns() []Turn {
+	var turns = []Turn{}
+	var turns_number = []int{1, 2, 3, 4}
+	for i, element := range turns_number {
+		var turn = Turn{element, "", map[string][]Card{}}
+		switch os := element; os {
+		case 2:
+			var desc = "Second turn"
+			turn.Requirement = desc
+			fmt.Println(i, desc)
+		case 3:
+			var desc = "Third turn"
+			turn.Requirement = desc
+			fmt.Println(i, desc)
+		case 4:
+			var desc = "Fourth turn"
+			turn.Requirement = desc
+			fmt.Println(i, desc)
+		default:
+			var desc = "First turn"
+			turn.Requirement = desc
+			fmt.Println(i, desc)
+		}
+		turns = append(turns, turn)
+	}
+	fmt.Println(turns)
+	return turns
 }
 
 func (t Turn) playTurn(d Deck) Deck {
@@ -116,7 +150,6 @@ func (c Deck) populate() {
 			// fmt.Println(cards)
 		}
 		c.Cards[suit] = cards
-
 	}
 	// fmt.Println(c.Cards)
 }
